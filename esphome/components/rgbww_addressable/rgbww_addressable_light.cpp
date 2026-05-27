@@ -132,8 +132,9 @@ void RGBWWAddressableLightOutput::setup() {
   channel.flags.invert_out = this->invert_out_;
   channel.flags.with_dma = false;
   channel.intr_priority = 0;
-  if (rmt_new_tx_channel(&channel, &this->channel_) != ESP_OK) {
-    ESP_LOGE(TAG, "Channel creation failed");
+  esp_err_t err = rmt_new_tx_channel(&channel, &this->channel_);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Channel creation failed: %s", esp_err_to_name(err));
     this->mark_failed();
     return;
   }
@@ -144,23 +145,26 @@ void RGBWWAddressableLightOutput::setup() {
   encoder.callback = encoder_callback;
   encoder.arg = &this->params_;
   encoder.min_chunk_size = RMT_SYMBOLS_PER_BYTE;
-  if (rmt_new_simple_encoder(&encoder, &this->encoder_) != ESP_OK) {
-    ESP_LOGE(TAG, "Encoder creation failed");
+  err = rmt_new_simple_encoder(&encoder, &this->encoder_);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Encoder creation failed: %s", esp_err_to_name(err));
     this->mark_failed();
     return;
   }
 #else
   rmt_copy_encoder_config_t encoder;
   memset(&encoder, 0, sizeof(encoder));
-  if (rmt_new_copy_encoder(&encoder, &this->encoder_) != ESP_OK) {
-    ESP_LOGE(TAG, "Encoder creation failed");
+  err = rmt_new_copy_encoder(&encoder, &this->encoder_);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Encoder creation failed: %s", esp_err_to_name(err));
     this->mark_failed();
     return;
   }
 #endif
 
-  if (rmt_enable(this->channel_) != ESP_OK) {
-    ESP_LOGE(TAG, "Enabling channel failed");
+  err = rmt_enable(this->channel_);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Enabling channel failed: %s", esp_err_to_name(err));
     this->mark_failed();
     return;
   }
@@ -228,7 +232,7 @@ void RGBWWAddressableLightOutput::write_state(light::LightState *state) {
 
   esp_err_t error = rmt_tx_wait_all_done(this->channel_, 1000);
   if (error != ESP_OK) {
-    ESP_LOGE(TAG, "RMT TX timeout");
+    ESP_LOGE(TAG, "RMT TX wait failed: %s", esp_err_to_name(error));
     this->status_set_warning();
     return;
   }
@@ -268,7 +272,7 @@ void RGBWWAddressableLightOutput::write_state(light::LightState *state) {
   error = rmt_transmit(this->channel_, this->encoder_, this->rmt_buf_, len * sizeof(rmt_symbol_word_t), &config);
 #endif
   if (error != ESP_OK) {
-    ESP_LOGE(TAG, "RMT TX error");
+    ESP_LOGE(TAG, "RMT TX error: %s", esp_err_to_name(error));
     this->status_set_warning();
     return;
   }
