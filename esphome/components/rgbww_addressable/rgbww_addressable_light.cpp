@@ -168,7 +168,7 @@ void RGBWWAddressableLightOutput::setup() {
 
 void RGBWWAddressableLightOutput::update_state(light::LightState *state) {
   auto val = state->current_values;
-  auto max_brightness = to_uint8_scale(val.get_brightness() * val.get_state());
+  auto max_brightness = esphome::light::to_uint8_scale(val.get_brightness() * val.get_state());
   this->correction_.set_local_brightness(max_brightness);
 
   if (this->is_effect_active()) {
@@ -183,10 +183,10 @@ void RGBWWAddressableLightOutput::update_state(light::LightState *state) {
     }
   }
 
-  auto r = to_uint8_scale(val.get_color_brightness() * val.get_red());
-  auto g = to_uint8_scale(val.get_color_brightness() * val.get_green());
-  auto b = to_uint8_scale(val.get_color_brightness() * val.get_blue());
-  auto w = to_uint8_scale(combined);
+  auto r = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_red());
+  auto g = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_green());
+  auto b = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_blue());
+  auto w = esphome::light::to_uint8_scale(combined);
 
   this->all() = Color(r, g, b, w);
   this->schedule_show();

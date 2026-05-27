@@ -79,11 +79,11 @@ class RGBWWAddressableLightOutput : public light::AddressableLight {
 
   uint8_t pin_{0};
   uint16_t num_leds_{0};
-  RGBOrder rgb_order_(ORDER_RGB);
-  bool swap_white_channels_(false);
+  RGBOrder rgb_order_{ORDER_RGB};
+  bool swap_white_channels_{false};
   bool invert_out_{false};
-  float cold_white_temperature_(0);
-  float warm_white_temperature_(0);
+  float cold_white_temperature_{0};
+  float warm_white_temperature_{0};
 };
 
 }  // namespace rgbww_addressable
