@@ -13,6 +13,84 @@
 namespace esphome {
 namespace rgbww_addressable {
 
+struct RGBWWColor {
+  uint8_t red;
+  uint8_t green;
+  uint8_t blue;
+  uint8_t cold_white;
+  uint8_t warm_white;
+
+  bool operator==(const RGBWWColor &rhs) const {
+    return this->red == rhs.red && this->green == rhs.green && this->blue == rhs.blue &&
+           this->cold_white == rhs.cold_white && this->warm_white == rhs.warm_white;
+  }
+  bool operator!=(const RGBWWColor &rhs) const { return !(*this == rhs); }
+  RGBWWColor &operator*=(uint8_t scale) {
+    this->red = esp_scale8(this->red, scale);
+    this->green = esp_scale8(this->green, scale);
+    this->blue = esp_scale8(this->blue, scale);
+    this->cold_white = esp_scale8(this->cold_white, scale);
+    this->warm_white = esp_scale8(this->warm_white, scale);
+    return *this;
+  }
+};
+
+class RGBWWColorView {
+ public:
+  RGBWWColorView(uint8_t *red, uint8_t *green, uint8_t *blue, uint8_t *cold_white, uint8_t *warm_white,
+                 uint8_t *effect_data, const light::ESPColorCorrection *color_correction)
+      : red_(red),
+        green_(green),
+        blue_(blue),
+        cold_white_(cold_white),
+        warm_white_(warm_white),
+        effect_data_(effect_data),
+        color_correction_(color_correction) {}
+
+  void set_red(uint8_t red) { *this->red_ = this->color_correction_->color_correct_red(red); }
+  void set_green(uint8_t green) { *this->green_ = this->color_correction_->color_correct_green(green); }
+  void set_blue(uint8_t blue) { *this->blue_ = this->color_correction_->color_correct_blue(blue); }
+  void set_cold_white(uint8_t cold_white) {
+    *this->cold_white_ = this->color_correction_->color_correct_white(cold_white);
+  }
+  void set_warm_white(uint8_t warm_white) {
+    *this->warm_white_ = this->color_correction_->color_correct_white(warm_white);
+  }
+  void set_rgb(uint8_t red, uint8_t green, uint8_t blue) {
+    this->set_red(red);
+    this->set_green(green);
+    this->set_blue(blue);
+  }
+  void set_rgbww(uint8_t red, uint8_t green, uint8_t blue, uint8_t cold_white, uint8_t warm_white) {
+    this->set_rgb(red, green, blue);
+    this->set_cold_white(cold_white);
+    this->set_warm_white(warm_white);
+  }
+  void set_effect_data(uint8_t effect_data) {
+    if (this->effect_data_ == nullptr)
+      return;
+    *this->effect_data_ = effect_data;
+  }
+
+  uint8_t get_red() const { return this->color_correction_->color_uncorrect_red(*this->red_); }
+  uint8_t get_green() const { return this->color_correction_->color_uncorrect_green(*this->green_); }
+  uint8_t get_blue() const { return this->color_correction_->color_uncorrect_blue(*this->blue_); }
+  uint8_t get_cold_white() const { return this->color_correction_->color_uncorrect_white(*this->cold_white_); }
+  uint8_t get_warm_white() const { return this->color_correction_->color_uncorrect_white(*this->warm_white_); }
+  RGBWWColor get() const {
+    return {this->get_red(), this->get_green(), this->get_blue(), this->get_cold_white(), this->get_warm_white()};
+  }
+
+ protected:
+  uint8_t *const red_;
+  uint8_t *const green_;
+  uint8_t *const blue_;
+  uint8_t *const cold_white_;
+  uint8_t *const warm_white_;
+  uint8_t *const effect_data_;
+  const light::ESPColorCorrection *color_correction_;
+};
+
 enum RGBOrder : uint8_t {
   ORDER_RGB,
   ORDER_RBG,
@@ -34,6 +112,7 @@ class RGBWWAddressableLightOutput : public light::AddressableLight {
   void update_state(light::LightState *state) override;
   void write_state(light::LightState *state) override;
   void dump_config() override;
+  std::unique_ptr<light::LightTransformer> create_default_transition() override;
 
   int32_t size() const override { return this->num_leds_; }
 
@@ -60,12 +139,19 @@ class RGBWWAddressableLightOutput : public light::AddressableLight {
 
  protected:
   light::ESPColorView get_view_internal(int32_t index) const override;
+  RGBWWColorView get_rgbww_view_internal(int32_t index) const;
+  void set_combined_white_(int32_t index, uint8_t cold_white, uint8_t warm_white) {
+    const uint16_t combined = cold_white + warm_white;
+    this->white_buf_[index] = combined > 255 ? 255 : combined;
+  }
   size_t get_buffer_size_() const { return this->num_leds_ * BYTES_PER_LED; }
 
   static constexpr uint8_t BYTES_PER_LED = 6;
 
   uint8_t *buf_{nullptr};
   uint8_t *white_buf_{nullptr};
+  uint8_t *cold_white_buf_{nullptr};
+  uint8_t *warm_white_buf_{nullptr};
   uint8_t *effect_data_{nullptr};
   LedParams params_;
   rmt_channel_handle_t channel_{nullptr};
