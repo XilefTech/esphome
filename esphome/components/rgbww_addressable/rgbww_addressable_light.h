@@ -75,7 +75,7 @@ class RGBWWAddressableLightOutput : public light::AddressableLight {
 #else
   rmt_symbol_word_t *rmt_buf_{nullptr};
 #endif
-  uint32_t rmt_symbols_{48};
+  uint32_t rmt_symbols_{96};
 
   uint8_t pin_{0};
   uint16_t num_leds_{0};

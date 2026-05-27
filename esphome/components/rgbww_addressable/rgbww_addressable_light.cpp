@@ -122,6 +122,12 @@ void RGBWWAddressableLightOutput::setup() {
   // WS2811 default timings in nanoseconds
   set_led_params(&this->params_, 300, 1090, 1090, 320, 0, 300000);
 
+  if ((this->rmt_symbols_ & 1U) != 0U || this->rmt_symbols_ < 64U) {
+    const uint32_t adjusted = std::max<uint32_t>(64U, (this->rmt_symbols_ + 1U) & ~1U);
+    ESP_LOGW(TAG, "Adjusting rmt_symbols from %" PRIu32 " to %" PRIu32, this->rmt_symbols_, adjusted);
+    this->rmt_symbols_ = adjusted;
+  }
+
   rmt_tx_channel_config_t channel;
   memset(&channel, 0, sizeof(channel));
   channel.clk_src = RMT_CLK_SRC_DEFAULT;
