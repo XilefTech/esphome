@@ -106,6 +106,8 @@ struct LedParams {
   rmt_symbol_word_t reset;
 };
 
+class RGBWWAddressableLightTransformer;
+
 class RGBWWAddressableLightOutput : public light::AddressableLight {
  public:
   void setup() override;
@@ -138,6 +140,8 @@ class RGBWWAddressableLightOutput : public light::AddressableLight {
   }
 
  protected:
+  friend class RGBWWAddressableLightTransformer;
+
   light::ESPColorView get_view_internal(int32_t index) const override;
   RGBWWColorView get_rgbww_view_internal(int32_t index) const;
   void set_combined_white_(int32_t index, uint8_t cold_white, uint8_t warm_white) {
