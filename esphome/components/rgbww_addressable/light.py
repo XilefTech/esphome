@@ -19,7 +19,7 @@ DEPENDENCIES = ["esp32"]
 
 rgbww_addressable_ns = cg.esphome_ns.namespace("rgbww_addressable")
 RGBWWAddressableLightOutput = rgbww_addressable_ns.class_(
-    "RGBWWAddressableLightOutput", light.AddressableLight
+    "RGBWWAddressableLightOutput", light.AddressableLightRGBWW
 )
 
 CONF_SWAP_WHITE_CHANNELS = "swap_white_channels"

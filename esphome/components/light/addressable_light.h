@@ -16,6 +16,9 @@
 
 namespace esphome::light {
 
+class AddressableLightRGBWW;
+class AddressableLightRGBWWTransformer;
+
 /// Convert the color information from a `LightColorValues` object to a `Color` object (does not apply brightness).
 Color color_from_light_color_values(LightColorValues val);
 
@@ -30,6 +33,8 @@ class AddressableLight : public LightOutput, public Component {
   virtual int32_t size() const = 0;
   ESPColorView operator[](int32_t index) const { return this->get_view_internal(interpret_index(index, this->size())); }
   ESPColorView get(int32_t index) { return this->get_view_internal(interpret_index(index, this->size())); }
+  virtual AddressableLightRGBWW *as_rgbww() { return nullptr; }
+  virtual const AddressableLightRGBWW *as_rgbww() const { return nullptr; }
   virtual void clear_effect_data() = 0;
   ESPRangeView range(int32_t from, int32_t to) {
     from = interpret_index(from, this->size());
@@ -82,6 +87,7 @@ class AddressableLight : public LightOutput, public Component {
 
  protected:
   friend class AddressableLightTransformer;
+  friend class AddressableLightRGBWWTransformer;
 
   void mark_shown_() {
 #ifdef USE_POWER_SUPPLY
@@ -116,6 +122,44 @@ class AddressableLightTransformer : public LightTransformer {
   float last_transition_progress_{0.0f};
   Color target_color_{};
   Color uniform_start_color_{};
+  bool uniform_start_scanned_{false};
+  bool uniform_start_is_uniform_{false};
+};
+
+class AddressableLightRGBWW : public AddressableLight {
+ public:
+  AddressableLightRGBWW *as_rgbww() override { return this; }
+  const AddressableLightRGBWW *as_rgbww() const override { return this; }
+
+  RGBWWColorView get_rgbww(int32_t index) const {
+    return this->get_rgbww_view_internal(interpret_index(index, this->size()));
+  }
+  std::unique_ptr<LightTransformer> create_default_transition() override;
+
+  void set_rgbww_effect_active(bool active) { this->rgbww_effect_active_ = active; }
+  bool is_rgbww_effect_active() const { return this->rgbww_effect_active_; }
+  void clear_rgbww_effect_active() { this->rgbww_effect_active_ = false; }
+
+ protected:
+  friend class AddressableLightRGBWWTransformer;
+
+  virtual RGBWWColorView get_rgbww_view_internal(int32_t index) const = 0;
+
+  bool rgbww_effect_active_{false};
+};
+
+class AddressableLightRGBWWTransformer : public LightTransformer {
+ public:
+  AddressableLightRGBWWTransformer(AddressableLightRGBWW &light) : light_(light) {}
+
+  void start() override;
+  optional<LightColorValues> apply() override;
+
+ protected:
+  AddressableLightRGBWW &light_;
+  float last_transition_progress_{0.0f};
+  RGBWWColor target_color_{};
+  RGBWWColor uniform_start_color_{};
   bool uniform_start_scanned_{false};
   bool uniform_start_is_uniform_{false};
 };

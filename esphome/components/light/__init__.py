@@ -60,6 +60,7 @@ from .effects import (
 )
 from .types import (  # noqa: F401
     AddressableLight,
+    AddressableLightRGBWW,
     AddressableLightState,
     ColorMode,
     LightOutput,

@@ -79,114 +79,6 @@ static void set_led_params(LedParams *params, uint32_t bit0_high, uint32_t bit0_
   params->reset.level1 = 0;
 }
 
-static RGBWWColor rgbww_color_from_light_color_values(const light::LightColorValues &val) {
-  auto r = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_red());
-  auto g = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_green());
-  auto b = esphome::light::to_uint8_scale(val.get_color_brightness() * val.get_blue());
-  float cold_white = 0.0f;
-  float warm_white = 0.0f;
-  if (val.get_color_mode() & light::ColorCapability::COLD_WARM_WHITE) {
-    cold_white = val.get_cold_white();
-    warm_white = val.get_warm_white();
-  }
-  auto cw = esphome::light::to_uint8_scale(cold_white);
-  auto ww = esphome::light::to_uint8_scale(warm_white);
-  return {r, g, b, cw, ww};
-}
-
-inline constexpr uint8_t subtract_scaled_difference(uint8_t a, uint8_t b, int32_t scale) {
-  return uint8_t(int32_t(a) - (((int32_t(a) - int32_t(b)) * scale) / 256));
-}
-
-class RGBWWAddressableLightTransformer : public light::LightTransformer {
- public:
-  explicit RGBWWAddressableLightTransformer(RGBWWAddressableLightOutput &light) : light_(light) {}
-
-  void start() override {
-    if (this->light_.is_effect_active())
-      return;
-
-    auto end_values = this->target_values_;
-    this->target_color_ = rgbww_color_from_light_color_values(end_values);
-
-    // Transition handles brightness itself; disable local brightness in correction.
-    this->light_.correction_.set_local_brightness(255);
-    this->target_color_ *= esphome::light::to_uint8_scale(end_values.get_brightness() * end_values.get_state());
-
-    this->uniform_start_scanned_ = false;
-    this->uniform_start_is_uniform_ = false;
-  }
-
-  optional<light::LightColorValues> apply() override {
-    float smoothed_progress = light::LightTransformer::smoothed_progress(this->get_progress_());
-
-    if (this->light_.is_effect_active())
-      return light::LightColorValues::lerp(this->get_start_values(), this->get_target_values(), smoothed_progress);
-
-    if (smoothed_progress > this->last_transition_progress_ && this->last_transition_progress_ < 1.f) {
-      if (!this->uniform_start_scanned_) {
-        this->uniform_start_scanned_ = true;
-        if (this->light_.size() > 0) {
-          RGBWWColor first = this->light_.get_rgbww_view_internal(0).get();
-          bool uniform = true;
-          for (int32_t i = 1; i < this->light_.size(); i++) {
-            if (this->light_.get_rgbww_view_internal(i).get() != first) {
-              uniform = false;
-              break;
-            }
-          }
-          if (uniform) {
-            this->uniform_start_color_ = first;
-            this->uniform_start_is_uniform_ = true;
-          }
-        }
-      }
-
-      if (this->uniform_start_is_uniform_) {
-        const RGBWWColor &start = this->uniform_start_color_;
-        int32_t remaining = int32_t(256.f * (1.f - smoothed_progress));
-        uint8_t r = subtract_scaled_difference(this->target_color_.red, start.red, remaining);
-        uint8_t g = subtract_scaled_difference(this->target_color_.green, start.green, remaining);
-        uint8_t b = subtract_scaled_difference(this->target_color_.blue, start.blue, remaining);
-        uint8_t cw = subtract_scaled_difference(this->target_color_.cold_white, start.cold_white, remaining);
-        uint8_t ww = subtract_scaled_difference(this->target_color_.warm_white, start.warm_white, remaining);
-        for (int32_t i = 0; i < this->light_.size(); i++) {
-          auto led = this->light_.get_rgbww_view_internal(i);
-          led.set_rgbww(r, g, b, cw, ww);
-          this->light_.set_combined_white_(i, cw, ww);
-        }
-      } else {
-        int32_t scale =
-            int32_t(256.f * std::max((1.f - smoothed_progress) / (1.f - this->last_transition_progress_), 0.f));
-        for (int32_t i = 0; i < this->light_.size(); i++) {
-          auto led = this->light_.get_rgbww_view_internal(i);
-          RGBWWColor current = led.get();
-          uint8_t r = subtract_scaled_difference(this->target_color_.red, current.red, scale);
-          uint8_t g = subtract_scaled_difference(this->target_color_.green, current.green, scale);
-          uint8_t b = subtract_scaled_difference(this->target_color_.blue, current.blue, scale);
-          uint8_t cw = subtract_scaled_difference(this->target_color_.cold_white, current.cold_white, scale);
-          uint8_t ww = subtract_scaled_difference(this->target_color_.warm_white, current.warm_white, scale);
-          led.set_rgbww(r, g, b, cw, ww);
-          this->light_.set_combined_white_(i, cw, ww);
-        }
-      }
-
-      this->last_transition_progress_ = smoothed_progress;
-      this->light_.schedule_show();
-    }
-
-    return {};
-  }
-
- protected:
-  RGBWWAddressableLightOutput &light_;
-  float last_transition_progress_{0.0f};
-  RGBWWColor target_color_{};
-  RGBWWColor uniform_start_color_{};
-  bool uniform_start_scanned_{false};
-  bool uniform_start_is_uniform_{false};
-};
-
 void RGBWWAddressableLightOutput::setup() {
   const size_t buffer_size = this->get_buffer_size_();
 
@@ -349,7 +241,7 @@ void RGBWWAddressableLightOutput::write_state(light::LightState *state) {
     return;
   }
 
-  const bool use_combined = this->is_effect_active();
+  const bool use_combined = this->is_effect_active() && !this->is_rgbww_effect_active();
   float cw_ratio = 0.5f;
   if (use_combined) {
     float cold_white = 0.0f;
@@ -384,6 +276,7 @@ void RGBWWAddressableLightOutput::write_state(light::LightState *state) {
     this->buf_[base + 5] = 0;
   }
 
+  this->clear_rgbww_effect_active();
   this->mark_shown_();
 
   esp_err_t error = rmt_tx_wait_all_done(this->channel_, 1000);
@@ -475,7 +368,7 @@ light::ESPColorView RGBWWAddressableLightOutput::get_view_internal(int32_t index
   return {red, green, blue, &this->white_buf_[index], &this->effect_data_[index], &this->correction_};
 }
 
-RGBWWColorView RGBWWAddressableLightOutput::get_rgbww_view_internal(int32_t index) const {
+light::RGBWWColorView RGBWWAddressableLightOutput::get_rgbww_view_internal(int32_t index) const {
   const size_t base = index * BYTES_PER_LED;
   uint8_t *red = nullptr;
   uint8_t *green = nullptr;
@@ -519,10 +412,6 @@ RGBWWColorView RGBWWAddressableLightOutput::get_rgbww_view_internal(int32_t inde
           &this->warm_white_buf_[index],
           &this->effect_data_[index],
           &this->correction_};
-}
-
-std::unique_ptr<light::LightTransformer> RGBWWAddressableLightOutput::create_default_transition() {
-  return make_unique<RGBWWAddressableLightTransformer>(*this);
 }
 
 void RGBWWAddressableLightOutput::dump_config() {

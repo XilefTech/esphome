@@ -8,6 +8,7 @@ AddressableLightState = light_ns.class_("AddressableLightState", LightState)
 LightOutput = light_ns.class_("LightOutput")
 AddressableLight = light_ns.class_("AddressableLight", LightOutput, cg.Component)
 AddressableLightRef = AddressableLight.operator("ref")
+AddressableLightRGBWW = light_ns.class_("AddressableLightRGBWW", AddressableLight)
 
 Color = cg.esphome_ns.class_("Color")
 LightColorValues = light_ns.class_("LightColorValues")
