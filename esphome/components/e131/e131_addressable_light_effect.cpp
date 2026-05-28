@@ -84,6 +84,24 @@ bool E131AddressableLightEffect::process_(int universe, const E131Packet &packet
         output.set(Color(input_data[0], input_data[1], input_data[2], input_data[3]));
       }
       break;
+
+    case E131_RGBWW: {
+      auto *rgbww = it->as_rgbww();
+      if (rgbww != nullptr) {
+        rgbww->set_rgbww_effect_active(true);
+        for (; output_offset < output_end; output_offset++, input_data += 5) {
+          auto output = rgbww->get_rgbww(output_offset);
+          output.set_rgbww(input_data[0], input_data[1], input_data[2], input_data[3], input_data[4]);
+        }
+      } else {
+        for (; output_offset < output_end; output_offset++, input_data += 5) {
+          auto output = (*it)[output_offset];
+          const uint16_t combined = input_data[3] + input_data[4];
+          output.set(Color(input_data[0], input_data[1], input_data[2], combined > 255 ? 255 : combined));
+        }
+      }
+      break;
+    }
   }
 
   it->schedule_show();

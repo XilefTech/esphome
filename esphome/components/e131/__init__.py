@@ -19,6 +19,7 @@ CHANNELS = {
     "MONO": e131_ns.E131_MONO,
     "RGB": e131_ns.E131_RGB,
     "RGBW": e131_ns.E131_RGBW,
+    "RGBWW": e131_ns.E131_RGBWW,
 }
 
 CONF_UNIVERSE = "universe"

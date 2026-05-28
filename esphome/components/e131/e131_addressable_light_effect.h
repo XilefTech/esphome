@@ -9,7 +9,7 @@ namespace esphome::e131 {
 class E131Component;
 struct E131Packet;
 
-enum E131LightChannels { E131_MONO = 1, E131_RGB = 3, E131_RGBW = 4 };
+enum E131LightChannels { E131_MONO = 1, E131_RGB = 3, E131_RGBW = 4, E131_RGBWW = 5 };
 
 class E131AddressableLightEffect : public light::AddressableLightEffect {
  public:
